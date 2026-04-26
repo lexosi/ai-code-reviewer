@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# Post-commit hook: send the latest commit diff for AI code review.
+# Requires ai-code-reviewer to be in PATH or its full path set below.
+
+REVIEWER="ai-code-reviewer"
+
+if ! command -v "$REVIEWER" >/dev/null 2>&1; then
+    echo "[ai-code-reviewer] Binary not found in PATH — skipping review."
+    exit 0
+fi
+
+"$REVIEWER" review || echo "[ai-code-reviewer] Review failed — check output above."
