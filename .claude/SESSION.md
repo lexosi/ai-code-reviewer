@@ -28,6 +28,18 @@ Keep each entry concise: the goal is orientation, not a transcript.
 
 <!-- Session entries go below this line -->
 
+## Session — 2026-04-26 (continuación)
+
+**What was worked on:** Regularización del workflow: se corrigió no haber seguido el orchestrator pattern. Se crearon 19 tests unitarios (config, claude, telegram, git), se pasó clippy limpio, y se siguió el git flow correcto: `feature/initial-implementation` → `test/initial-implementation` → pendiente PR a `main`.
+**Key decisions made:**
+- Tests sin mocks de red: se extrajeron funciones puras (`extract_text_from_response`, `prepare_text`, `run_git`) para testear lógica aislada
+- `Config::from_toml_str` expuesta como `pub(crate)` para tests sin tocar filesystem
+- Commit en `feature/`, merge `--no-ff` a `test/`, tests verificados en ambas ramas
+**Work in progress:** PR de `test/initial-implementation` → `main` pendiente de apertura
+**Blockers or open questions:** Ninguno técnico. El usuario debe abrir el PR o autorizar el merge.
+**Files changed:** src/config.rs, src/git.rs, src/claude.rs, src/telegram.rs (tests añadidos), .claude/SESSION.md
+**Next steps:** Abrir PR test/initial-implementation → main; configurar config.toml real y probar end-to-end con API keys reales.
+
 ## Session — 2026-04-26
 
 **What was worked on:** Full initial implementation of ai-code-reviewer — all src/ modules, hook script, PowerShell installer, and example config. Build succeeded clean on first attempt.
