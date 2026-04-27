@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Post-commit hook: send the latest commit diff for AI code review.
+
+REVIEWER="F:/proyectosprog/ai-code-reviewer/target/release/ai-code-reviewer.exe"
+
+if [ ! -x "$REVIEWER" ]; then
+    echo "[ai-code-reviewer] Binary not found at $REVIEWER — skipping review."
+    exit 0
+fi
+
+"$REVIEWER" review || echo "[ai-code-reviewer] Review failed — check output above."
