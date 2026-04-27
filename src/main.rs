@@ -102,3 +102,34 @@ fn run_install() -> Result<()> {
     println!("Hook installed at {}", dest.display());
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dry_run_flag_is_parsed() {
+        let cli = Cli::try_parse_from(["ai-code-reviewer", "review", "--dry-run"]).unwrap();
+        let Commands::Review { dry_run } = cli.command else {
+            panic!("expected Review subcommand");
+        };
+        assert!(dry_run);
+    }
+
+    #[test]
+    fn review_without_flag_defaults_dry_run_false() {
+        let cli = Cli::try_parse_from(["ai-code-reviewer", "review"]).unwrap();
+        let Commands::Review { dry_run } = cli.command else {
+            panic!("expected Review subcommand");
+        };
+        assert!(!dry_run);
+    }
+
+    #[test]
+    fn telegram_message_format() {
+        let review = "Looks clean.";
+        let message = format!("*AI Code Review*\n\n{review}");
+        assert!(message.starts_with("*AI Code Review*"));
+        assert!(message.contains(review));
+    }
+}
