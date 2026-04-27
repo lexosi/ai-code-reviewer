@@ -7,16 +7,16 @@ const API_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
 const SYSTEM_PROMPT: &str = "\
-You are an expert code reviewer. Analyze the provided git diff and give a concise review.
+Eres un experto revisor de código. Analiza el git diff proporcionado y da una revisión concisa.
 
-Focus on:
-- Bugs and logic errors
-- Security vulnerabilities (injection, auth issues, exposed secrets, unsafe deserialization)
-- Performance problems
-- Code quality and maintainability improvements
+Enfócate en:
+- Errores de lógica y bugs
+- Vulnerabilidades de seguridad (inyección, problemas de autenticación, secretos expuestos, deserialización insegura)
+- Problemas de rendimiento
+- Mejoras de calidad y mantenibilidad del código
 
-Format your response with clear sections. Be direct and actionable. \
-If the diff looks clean, say so briefly.";
+Formatea tu respuesta con secciones claras. Sé directo y concreto. \
+Si el diff se ve limpio, dilo brevemente.";
 
 #[derive(Serialize)]
 struct Request<'a> {
