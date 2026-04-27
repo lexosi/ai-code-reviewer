@@ -18,7 +18,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Run the full review pipeline on the latest commit
-    Review,
+    Review {
+        /// Print the review to stdout instead of sending to Telegram
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Install the post-commit git hook into .git/hooks/
     Install,
 }
@@ -26,12 +30,12 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Commands::Review => run_review(),
+        Commands::Review { dry_run } => run_review(dry_run),
         Commands::Install => run_install(),
     }
 }
 
-fn run_review() -> Result<()> {
+fn run_review(dry_run: bool) -> Result<()> {
     let config = config::Config::load()?;
 
     let diff = git::get_diff()?;
@@ -54,15 +58,19 @@ fn run_review() -> Result<()> {
     println!("Sending diff to Claude for review...");
     let review = claude::review_diff(&config.anthropic_api_key, diff)?;
 
-    println!("Sending review to Telegram...");
-    let message = format!("*AI Code Review*\n\n{review}");
-    telegram::send_message(
-        &config.telegram_bot_token,
-        &config.telegram_chat_id,
-        &message,
-    )?;
+    if dry_run {
+        println!("{review}");
+    } else {
+        println!("Sending review to Telegram...");
+        let message = format!("*AI Code Review*\n\n{review}");
+        telegram::send_message(
+            &config.telegram_bot_token,
+            &config.telegram_chat_id,
+            &message,
+        )?;
+        println!("Done.");
+    }
 
-    println!("Done.");
     Ok(())
 }
 
