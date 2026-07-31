@@ -14,7 +14,8 @@ struct SendMessage<'a> {
 pub(crate) fn prepare_text(text: &str) -> String {
     if text.len() > MAX_MESSAGE_LEN {
         let cut = MAX_MESSAGE_LEN - TRUNCATION_SUFFIX.len();
-        format!("{}{TRUNCATION_SUFFIX}", &text[..cut])
+        let head = crate::util::truncate_on_char_boundary(text, cut);
+        format!("{head}{TRUNCATION_SUFFIX}")
     } else {
         text.to_owned()
     }
@@ -23,13 +24,20 @@ pub(crate) fn prepare_text(text: &str) -> String {
 pub fn send_message(bot_token: &str, chat_id: &str, text: &str) -> Result<()> {
     let body_text = prepare_text(text);
     let url = format!("https://api.telegram.org/bot{bot_token}/sendMessage");
-    let body = SendMessage { chat_id, text: &body_text };
+    let body = SendMessage {
+        chat_id,
+        text: &body_text,
+    };
 
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .context("failed to build HTTP client")?;
     let response = client
         .post(&url)
         .json(&body)
         .send()
+        .map_err(|e| e.without_url())
         .context("failed to send Telegram message")?;
 
     let status = response.status();
@@ -77,5 +85,34 @@ mod tests {
     #[test]
     fn empty_text_is_unchanged() {
         assert_eq!(prepare_text(""), "");
+    }
+
+    #[test]
+    fn multibyte_over_limit_truncates_without_panic() {
+        // 'á' is 2 bytes in UTF-8; repeating MAX_MESSAGE_LEN times yields
+        // ~2 * 4096 bytes, well over MAX_MESSAGE_LEN, and the naive byte cut
+        // at MAX_MESSAGE_LEN - suffix_len lands mid-char (odd/even boundary).
+        let text = "á".repeat(MAX_MESSAGE_LEN);
+        assert!(text.len() > MAX_MESSAGE_LEN);
+
+        // Must not panic on the mid-char byte boundary.
+        let result = prepare_text(&text);
+
+        // `result` is a String, hence always valid UTF-8; assert the contract.
+        assert!(result.ends_with(TRUNCATION_SUFFIX));
+        assert!(result.len() <= MAX_MESSAGE_LEN + TRUNCATION_SUFFIX.len());
+    }
+
+    #[test]
+    fn emoji_over_limit_truncates_without_panic() {
+        // '😀' is 4 bytes in UTF-8; the byte cut can land on any of 3 mid-char
+        // offsets, exercising the boundary walk-back.
+        let text = "😀".repeat(MAX_MESSAGE_LEN);
+        assert!(text.len() > MAX_MESSAGE_LEN);
+
+        let result = prepare_text(&text);
+
+        assert!(result.ends_with(TRUNCATION_SUFFIX));
+        assert!(result.len() <= MAX_MESSAGE_LEN + TRUNCATION_SUFFIX.len());
     }
 }

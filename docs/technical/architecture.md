@@ -28,7 +28,7 @@ git commit
     │
     ▼
 .git/hooks/post-commit          (shell script — installed by `install` subcommand)
-    │  checks binary exists at absolute path; calls `ai-code-reviewer review`
+    │  resolves the binary via $AI_CODE_REVIEWER_BIN or PATH, then calls `ai-code-reviewer review`
     ▼
 main.rs :: run_review()
     │
@@ -40,7 +40,7 @@ main.rs :: run_review()
     ├─► git.rs :: get_diff()
     │       runs `git diff HEAD~1 HEAD`
     │       returns raw unified diff as a UTF-8 string
-    │       diff is truncated to max_diff_chars before being sent to Claude
+    │       diff is truncated to max_diff_chars (on a char boundary) before being sent to Claude
     │
     ├─► claude.rs :: review_diff()
     │       POST https://api.anthropic.com/v1/messages
@@ -148,36 +148,43 @@ diffs of hundreds of kilobytes, which exceed practical prompt sizes and inflate
 API costs.
 
 **Decision:** Truncate the raw diff to `max_diff_chars` (default 8000)
-**before** sending to Claude. The truncation is a hard byte-count slice, not
-a semantic split.
+**before** sending to Claude, via `util::truncate_on_char_boundary`. The budget
+is a maximum **byte** count, but the cut is taken at the nearest UTF-8 character
+boundary ≤ `max_diff_chars` — it never splits a multibyte character (and never
+panics). It is still not a *semantic* (hunk-aware) split.
 
 **Alternatives rejected:** Sending the full diff and relying on Claude's
 context window — would make review cost unpredictable. Splitting the diff into
 chunks — meaningful chunking of a unified diff requires parsing the format;
 out of scope for v0.1.
 
-**Consequences:** Reviews of large commits will be incomplete. The truncation
-boundary may fall mid-hunk. Acceptable trade-off; `max_diff_chars` is
-configurable so users with higher budgets can increase it.
+**Consequences:** Reviews of large commits will be incomplete. Because the cut
+is not hunk-aware, the truncation boundary may still fall mid-hunk. Acceptable
+trade-off; `max_diff_chars` is configurable so users with higher budgets can
+increase it.
 
 ---
 
-### Absolute binary path in hook script — 2026-04-26
+### Binary resolution in hook script — 2026-04-26 (updated 2026-07-31)
 
 **Context:** On Windows with Git Bash, `command -v` and PATH-based lookups for
 the `.exe` binary were unreliable. The binary was not found even when on PATH.
 
-**Decision:** Hard-code the absolute path to the binary in `hooks/post-commit`
-using `[ ! -x "$REVIEWER" ]` to check existence and executable permission
-before invoking.
+**Decision:** Resolve the binary in `hooks/post-commit` in this order:
+`$AI_CODE_REVIEWER_BIN` (an explicit path, recommended on Windows/Git Bash where
+PATH lookup of the `.exe` is unreliable), then a plain `ai-code-reviewer` lookup
+on PATH. The committed hook contains **no** machine-specific absolute path, so
+the repo stays portable and free of personal disk paths.
 
-**Alternatives rejected:** PATH lookup via `command -v` — failed in practice
-on Windows/Git Bash. Relative path from hook — unreliable because the hook's
-working directory varies.
+**Alternatives rejected:** Hard-coding the absolute binary path in the committed
+hook — worked but was not portable and leaked a personal disk path into the
+repo. Relative path from hook — unreliable because the hook's working directory
+varies.
 
-**Consequences:** The hook script is not portable; it must be re-installed
-(`ai-code-reviewer install`) if the binary moves. Documented as a known
-limitation.
+**Consequences:** Users on Windows/Git Bash (where PATH lookup of the `.exe` is
+unreliable) should set `AI_CODE_REVIEWER_BIN` to the binary's absolute path; the
+env-var override exists specifically for that case. Users with the binary on
+PATH need no extra configuration.
 
 ---
 
@@ -233,14 +240,13 @@ so a misconfigured install cannot block commits.
 
 ## Known limitations and technical debt
 
-- Hook script contains a hard-coded absolute binary path — must be re-installed
-  if the binary moves. `scripts/install.ps1` also references a relative path
-  and may need updating for out-of-tree installs.
-- Diff truncation is a byte-count slice with no awareness of hunk boundaries;
-  the last hunk in a truncated diff may be malformed.
+- Hook script resolves the binary via `$AI_CODE_REVIEWER_BIN` or PATH (no
+  hard-coded path); Windows/Git Bash users should set `AI_CODE_REVIEWER_BIN`
+  because PATH lookup of the `.exe` is unreliable there.
+- Diff truncation respects UTF-8 character boundaries but has no awareness of
+  hunk boundaries; the last hunk in a truncated diff may be malformed.
 - A single `config.toml` co-located with the binary means one binary = one set
   of credentials. Multi-repo or multi-account setups require multiple installs.
-- No `--dry-run` flag to skip Telegram delivery during local testing.
 - No retry logic on transient HTTP failures from either API.
 - `max_tokens: 1024` is fixed in code; should be a config field for users who
   need longer reviews.

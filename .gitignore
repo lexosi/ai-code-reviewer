@@ -1,3 +1,4 @@
 /target
 config.toml
-state.json
+.claude/
+CLAUDE.md

@@ -1,7 +1,10 @@
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 mod claude;
 mod config;
 mod git;
 mod telegram;
+mod util;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -9,7 +12,10 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Parser)]
-#[command(name = "ai-code-reviewer", about = "AI-powered post-commit code reviewer")]
+#[command(
+    name = "ai-code-reviewer",
+    about = "AI-powered post-commit code reviewer"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -46,11 +52,11 @@ fn run_review(dry_run: bool) -> Result<()> {
 
     let diff = if diff.len() > config.max_diff_chars {
         println!(
-            "Diff truncated from {} to {} chars.",
+            "Diff truncated from {} to {} bytes.",
             diff.len(),
             config.max_diff_chars
         );
-        &diff[..config.max_diff_chars]
+        util::truncate_on_char_boundary(&diff, config.max_diff_chars)
     } else {
         &diff
     };
@@ -62,7 +68,7 @@ fn run_review(dry_run: bool) -> Result<()> {
         println!("{review}");
     } else {
         println!("Sending review to Telegram...");
-        let message = format!("*AI Code Review*\n\n{review}");
+        let message = format_review_message(&review);
         telegram::send_message(
             &config.telegram_bot_token,
             &config.telegram_chat_id,
@@ -74,17 +80,21 @@ fn run_review(dry_run: bool) -> Result<()> {
     Ok(())
 }
 
+fn format_review_message(review: &str) -> String {
+    format!("*AI Code Review*\n\n{review}")
+}
+
 fn run_install() -> Result<()> {
     let hooks_dir = Path::new(".git/hooks");
     if !hooks_dir.exists() {
-        anyhow::bail!(
-            ".git/hooks not found — run this command from the root of a git repository"
-        );
+        anyhow::bail!(".git/hooks not found — run this command from the root of a git repository");
     }
 
     let hook_src = Path::new("hooks/post-commit");
     if !hook_src.exists() {
-        anyhow::bail!("hooks/post-commit not found — make sure you are running from the project root");
+        anyhow::bail!(
+            "hooks/post-commit not found — make sure you are running from the project root"
+        );
     }
 
     let dest = hooks_dir.join("post-commit");
@@ -128,7 +138,7 @@ mod tests {
     #[test]
     fn telegram_message_format() {
         let review = "Looks clean.";
-        let message = format!("*AI Code Review*\n\n{review}");
+        let message = format_review_message(review);
         assert!(message.starts_with("*AI Code Review*"));
         assert!(message.contains(review));
     }

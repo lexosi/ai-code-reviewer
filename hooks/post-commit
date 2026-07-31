@@ -1,10 +1,18 @@
 #!/usr/bin/env sh
 # Post-commit hook: send the latest commit diff for AI code review.
+#
+# Binary resolution order:
+#   1. $AI_CODE_REVIEWER_BIN  (explicit path — recommended, e.g. an absolute
+#      path to target/release/ai-code-reviewer on Windows/Git Bash where PATH
+#      lookup of the .exe can be unreliable).
+#   2. `ai-code-reviewer` on PATH.
+# If neither resolves, the hook skips the review (never blocks the commit).
 
-REVIEWER="F:/proyectosprog/ai-code-reviewer/target/release/ai-code-reviewer.exe"
+REVIEWER="${AI_CODE_REVIEWER_BIN:-ai-code-reviewer}"
 
-if [ ! -x "$REVIEWER" ]; then
-    echo "[ai-code-reviewer] Binary not found at $REVIEWER — skipping review."
+if ! command -v "$REVIEWER" >/dev/null 2>&1; then
+    echo "[ai-code-reviewer] Binary '$REVIEWER' not found."
+    echo "[ai-code-reviewer] Set AI_CODE_REVIEWER_BIN to the binary path, or add it to PATH — skipping review."
     exit 0
 fi
 

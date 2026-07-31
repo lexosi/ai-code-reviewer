@@ -7,16 +7,16 @@ const API_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
 const SYSTEM_PROMPT: &str = "\
-Eres un experto revisor de código. Analiza el git diff proporcionado y da una revisión concisa.
+You are an expert code reviewer. Analyze the provided git diff and give a concise review.
 
-Enfócate en:
-- Errores de lógica y bugs
-- Vulnerabilidades de seguridad (inyección, problemas de autenticación, secretos expuestos, deserialización insegura)
-- Problemas de rendimiento
-- Mejoras de calidad y mantenibilidad del código
+Focus on:
+- Logic errors and bugs
+- Security vulnerabilities (injection, authentication issues, exposed secrets, insecure deserialization)
+- Performance problems
+- Code quality and maintainability improvements
 
-Formatea tu respuesta con secciones claras. Sé directo y concreto. \
-Si el diff se ve limpio, dilo brevemente.";
+Format your response with clear sections. Be direct and specific. \
+If the diff looks clean, say it briefly.";
 
 #[derive(Serialize)]
 struct Request<'a> {
@@ -63,10 +63,16 @@ pub fn review_diff(api_key: &str, diff: &str) -> Result<String> {
         model: MODEL,
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: vec![Message { role: "user", content: &prompt }],
+        messages: vec![Message {
+            role: "user",
+            content: &prompt,
+        }],
     };
 
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .context("failed to build HTTP client")?;
     let response = client
         .post(API_URL)
         .header("x-api-key", api_key)
@@ -81,7 +87,9 @@ pub fn review_diff(api_key: &str, diff: &str) -> Result<String> {
         bail!("Claude API returned {status}: {text}");
     }
 
-    let text = response.text().context("failed to read Claude API response body")?;
+    let text = response
+        .text()
+        .context("failed to read Claude API response body")?;
     extract_text_from_response(&text)
 }
 

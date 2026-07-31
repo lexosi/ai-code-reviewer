@@ -38,11 +38,16 @@ mod tests {
 
     #[test]
     fn get_diff_returns_result() {
-        // With only one commit HEAD~1 will not exist, so we expect an error.
-        // This confirms error propagation works; it is not a test failure.
+        // Environment-tolerant: on a shallow clone HEAD~1 may not exist → Err
+        // (error propagation path). When Ok, the output must be well-formed
+        // git diff text: either empty (no changes) or containing a real diff
+        // header line. A garbage/corrupted capture would fail this.
         let result = get_diff();
         match result {
-            Ok(diff) => assert!(diff.is_empty() || !diff.is_empty()), // any string is fine
+            Ok(diff) => assert!(
+                diff.is_empty() || diff.contains("diff --git"),
+                "expected empty or valid git diff output, got: {diff:?}"
+            ),
             Err(e) => assert!(e.to_string().contains("git")),
         }
     }

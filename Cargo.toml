@@ -2,6 +2,8 @@
 name = "ai-code-reviewer"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+description = "Post-commit git hook that sends the latest commit diff to the Claude API for review and delivers it to Telegram."
 
 [dependencies]
 anyhow = "1"
