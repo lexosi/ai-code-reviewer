@@ -72,7 +72,7 @@ then falls back to `ai-code-reviewer` on PATH. Point it at the absolute binary
 path:
 
 ```sh
-export AI_CODE_REVIEWER_BIN=/f/proyectosprog/ai-code-reviewer/target/release/ai-code-reviewer.exe
+export AI_CODE_REVIEWER_BIN=/path/to/ai-code-reviewer/target/release/ai-code-reviewer.exe
 ```
 
 Alternatively, add the binary directory to your `PATH`. If neither resolves, the
