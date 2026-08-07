@@ -1,5 +1,7 @@
 # ai-code-reviewer
 
+[![CI](https://github.com/lexosi/ai-code-reviewer/actions/workflows/ci.yml/badge.svg)](https://github.com/lexosi/ai-code-reviewer/actions/workflows/ci.yml)
+
 A post-commit git hook that sends the latest commit's diff to the Claude API for
 automated code review and delivers the result to Telegram. Written in Rust.
 
